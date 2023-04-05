@@ -1,0 +1,73 @@
+%include"stud_io.inc"
+global	_start
+
+section	.bss
+FinPos	resd 1
+
+section	.data
+string	db "5+4", 0
+result	db "9", 0
+StPos	db 1	;[ebp + 12]
+shift	db 2	;[ebp + 8]
+
+section .text
+ReWrite:
+	push	ebp
+	mov	ebp, esp
+	pushad		; save registers values into the stack
+	xor	ecx, ecx
+	xor	eax, eax; we're looking for zero byte => mov 0 to eax
+	mov	edi, string
+			; source string adress now in destination index
+.lp:	cmp	[edi], byte al
+			; looking for zero-byte
+	je	.RecFin	; if we've found one then jump
+	inc	cl	; else - increase position counter
+	inc	edi	; and increase the destination address
+	jmp	.lp
+.RecFin:mov	[FinPos], dword edi
+			; save source string final position
+	mov     edi, string
+                        ; source string adress again in destination index
+	mov	cl, [ebp + 12]
+	dec	cl	; prepare address of the byte we need to rewrite
+	jecxz	.next	
+.lp2:	inc	edi
+	loop	.lp2	; in the loop end edi contains byte address we need
+			; to rewrite
+.next	mov	esi, result
+			; result address now in source index 
+.lp3:	mov	bl, [esi]
+			; move contest of write in address in assist regist
+	mov	[edi], bl
+			; write in the numbers digit
+	inc	edi	; next string position
+	inc	esi	; next number position
+	cmp	[esi], byte 0
+			; the end of number?	
+	je 	.next2
+	jmp 	.lp3
+.next2:	mov	esi, edi; >>> prepare registers for "shift left" operation
+	mov	cl, [ebp + 8]
+	jecxz	.ErMsg
+.lp4:	inc	esi
+	loop	.lp4
+.break:	mov	ecx, [FinPos]
+	sub	ecx, esi; >>> end of preparations
+	rep movsb	; SHIFT LEFT OPERATION
+	mov	[FinPos], dword edi 
+	mov	cl, [ebp + 8]
+	rep stosb
+	jmp	.quit
+.ErMsg:	PRINT "lp4 - ecx register is 0"
+	PUTCHAR	10
+.quit:	popad		; restore registers values
+	mov	esp, ebp
+	pop 	ebp
+	ret
+
+_start:	push	dword 1
+	push	dword 2
+	call	ReWrite
+quit:	nop
+	FINISH	
