@@ -5,10 +5,10 @@ section	.bss
 FinPos	resd 1
 
 section	.data
-string	db "5+4", 0
-result	db "9", 0
-StPos	db 1	;[ebp + 12]
-shift	db 2	;[ebp + 8]
+string	db "2*(4)*2", 0
+result	db "4", 0
+StPos	db 3	;[ebp + 12]
+shift	db 1	;[ebp + 8]
 
 section .text
 ReWrite:
@@ -66,7 +66,7 @@ ReWrite:
 	pop 	ebp
 	ret
 
-_start:	push	dword 1
+_start:	push	dword 3
 	push	dword 2
 	call	ReWrite
 quit:	nop

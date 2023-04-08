@@ -161,7 +161,7 @@ calculator:
 .prod:  mov     [mask], byte 100b
         jmp     .arg2
 .quot:  mov     [mask], byte 1000b
-.arg2:  add     esi, 4  ; the second numer now is in esi
+.arg2:  add     esi, 4  ; the second nbumer now is in esi
         mov     edi, arg2s
                         ; destination - arg2s
 .loop2: lodsd           ; load to eax
@@ -194,11 +194,13 @@ calculator:
         jne     .QUOT
 .SUM:   add     eax, [arg1b]
         jmp     .convert
-.DIF:   sub     eax, [arg1b]
+.DIF:   mov	eax, [arg1b]
+	sub     eax, [arg2b]
         jmp     .convert
 .PROD:  mul     dword [arg1b]
         jmp     .convert
-.QUOT:  mov     eax, [arg1b]
+.QUOT:  xor	edx, edx
+	mov     eax, [arg1b]
         div     dword [arg2b]
 .convert:
         push    eax
@@ -337,16 +339,16 @@ CalculateString:
 	mov	bl, [esi - 1]
 	push	ebx	; save char in stack memory using assist reg
 	mov	[ebp - 40], dword 0
-			; read 1st sign - FALSE value	
+			; read 1st char - FALSE value
+	dec	esi	
 	mov	[ebp - 52], esi
 			; save 1st sign of arith subexpression address
+	inc	esi
 	jmp     .read
 .NotFst:cmp	[ebp - 44], dword 1
 			; do we read 1st sign of 2nd arg of arith subexpr?
 	jne	.anoth	; else just read another character
-	mov	[ebp - 56], esi
-			; then save current string position address 
-	mov	[ebp - 44], dword 0
+.break:	mov	[ebp - 44], dword 0
 			; read 1st sign of 2nd arg of arith subexpr - FALSE	
 .anoth:	mov	bl, [esi - 1]
 	push    ebx	; save char in stack memory using assist reg
@@ -376,17 +378,21 @@ CalculateString:
 			; calculate
 	lea	edx, [ebp - 64]	
 			; start to prepare
-.loop2:	push	dword [esp + ecx]
+	mov	ebx, esp
+			; creating a reference point
+	add	ebx, 4	; making it's the last chr in stack above zero
+	xor	ecx, ecx
+.loop2:	push	dword [ebx + ecx]
 			; parameters to subroutine
 	add	ecx, 4	; REVERSE ORDER because it's variable subroutine 
-	lea	eax, [esp + ecx]
+	lea	eax, [ebx + ecx]
 	cmp	eax, edx; have we added all parameters to subroutine?
 	jne	.loop2
-	call	calculator
+.break2:call	calculator
 			; put number in "result" string, put shift in edx
-	mov	esp, [ebp - 64]
-			; return stack pointer to the right place (last
-			; local variable)
+	lea     ebx, [ebp - 64]
+        mov     esp, ebx; return stack pointer to the right place (last
+			; local variable) using assist register
 	mov	eax, [ebp - 52]
 			; now we can use eax to calculate substitute number 
 			; starting position
@@ -395,10 +401,11 @@ CalculateString:
 			; calculate substitute number starting position
 	push	eax	; push substitute number starting position
 	push	edx	; push shift
-	call	ReWriteString 
-	mov	esp, [ebp - 64]
-                        ; return stack pointer to the right place (last
-                        ; local variable)
+.break3:call	ReWriteString 
+.break4:lea     ebx, [ebp - 64]
+        mov     esp, ebx; return stack pointer to the right place (last
+                        ; local variable) using assist register
+	xor	ebx, ebx
 	mov	esi, [ebp - 52]
 			; next char is the 1st position of the number we've
 			; just calculated
@@ -406,15 +413,18 @@ CalculateString:
 .EndStr:cmp	dword [ebp - 36], 1
 			; do we finish to read the string for the 2nd time?
 	jne	.SndPas ; if not - prepare the 2nd passage	
-	dec	esi	; if yes - the end of subroutine. Prepare to return
+	sub	esi, 2	; if yes - the end of subroutine. Prepare to return
 			; shift value - now esi contains the last not zero
 			; byte of the final number
 			; {number value is in result string}
-	sub	esi, [ebp - 56]
+	sub	[ebp - 56], esi
 			; subtract initial last byte addr and get shift val
-	mov	[ebp - 64], esi
+	mov	ebx, [ebp - 56]
+			; using intermidiate register to save shift value
+.break5:mov	[ebp - 64], ebx
 			; shift value is saved and ready for return
-	mov     esp, [ebp - 32]
+	lea	ebx, [ebp - 32]
+	mov     esp, ebx
 	popad		; pop all the registers values
 			; Just usual retutn
 	pop	ebp	; In recursion program it will be
@@ -435,7 +445,8 @@ PrintString:
         PUTCHAR al
         inc     esi
         jmp     .loop
-.quit:  xor     esi, esi
+.quit:  PUTCHAR 10
+	xor     esi, esi
         xor     eax, eax
         pop     ebp
         ret

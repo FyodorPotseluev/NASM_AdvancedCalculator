@@ -23,7 +23,7 @@ ReWriteString:
         xor     ecx, ecx
         xor     eax, eax; we're looking for zero byte => mov 0 to eax
         mov     edi, string
-                        ; source string adress now in destination index
+                        ; source string address now in destination index
 .lp:    cmp     [edi], byte al
                         ; looking for zero-byte
         je      .RecFin ; if we've found one then jump
@@ -110,7 +110,8 @@ StrToBin:
         mov     esi, [ebp + 8]
                         ; now we have str address in source pointer
         xor     edx, edx
-.char:  lodsb           ; get a char from the string 
+.char:  xor	eax, eax
+	lodsb           ; get a char from the string 
         sub     eax, 48 ; convert it into a regular number
         mov     ebx, eax; save current number
         mov     eax, edx; prepare the num accumulated before for multiplying
@@ -174,11 +175,13 @@ calculator:
         mov     [ebp - 4], ecx
                         ; save initial string length
         xor     ecx, ecx
+	xor	eax, eax
         push    arg1s
         call    StrToBin
 .break2:add     esp, 4
         mov     [arg1b], eax
                         ; convert 1st argument from string to byte
+	xor	eax, eax
         push    arg2s
         call    StrToBin
         add     esp, 4
@@ -285,10 +288,10 @@ ErrorCheck:
 	PRINT	"numbers, + - * / signs, and a balanced set of brackets"
         PUTCHAR 10
 	cmp     al, 10  ; we have line break?
-        je      .quit  	; then quit
+        je      quit  	; then quit
 .loop:	GETCHAR		; processing the rest of string
 	cmp     al, 10  ; do we have line break?
-	je	.quit	
+	je	quit	
 	jmp	.loop
 .quit:  xor	eax, eax
 	xor	ebx, ebx
@@ -309,6 +312,7 @@ CalculateString:
                         ; string address saved in source index
 	mov	edi, [ebp + 8]
 			; prepare fo find last element in the string
+	xor	eax, eax; we're looking for 0 byte => clean up eax value
 .loop:	scasb
 	jnz	.loop
 	sub	edi, 2	; now the last string byte address is in edi
@@ -353,13 +357,17 @@ CalculateString:
 .anoth:	mov	bl, [esi - 1]
 	push    ebx	; save char in stack memory using assist reg
 	jmp	.read		
-.sign:	cmp	[ebp - 48], dword 1
+.sign:	cmp     eax, '('
+        je      .recurs
+	cmp	[ebp - 48], dword 1
 			; do we read 1st sign char in subexpression?
 	jne	.EndExp ; end of the subexpression
 	mov	[ebp - 48], dword 0
 			; read 1st sign char in subexpression - FALSE value
 	cmp	eax, 0	; have we finished reading a string?
 	je	.EndStr	; it can be 2 situations "a+b" or "a" read
+	cmp	eax, ')'; have we finished reading a substring?
+	je	.EndStr
 	cmp	eax, '+'
 	je	.AddSub
 	cmp	eax, '-'
@@ -373,6 +381,26 @@ CalculateString:
 	jne	.PrRead	; {1st string passage} read new subexpression
 .MulDiv:mov	bl, [esi - 1]
 	push	ebx	; save sign in stack memory using assist reg
+	jmp	.read
+.recurs:push	esi	; push substring address
+	call	CalculateString
+			; recursive call
+.break6:add	esp, 4	; return back stack pointer value
+	dec	esi	; decrease current source pointer (it now points at
+			; the '(' 
+	mov	eax, string
+			; use additional register to put starting string
+			; position there
+	mov	ebx, esi
+	inc	ebx
+	sub	ebx, eax; calculate current position in the string
+	push	ebx	; push it
+	xor	eax, eax; clear additional register
+	xor	ebx, ebx
+	push	dword 2	; shift value is always 2 - we need to erase '(' 
+			; and ')' signs
+	call	ReWriteString 
+.break7:add     esp, 8	; return stack pointer to the right place
 	jmp	.read
 .EndExp:push	dword 0 ; if we finish to read subexpression we need to
 			; calculate
@@ -426,9 +454,9 @@ CalculateString:
 	lea	ebx, [ebp - 32]
 	mov     esp, ebx
 	popad		; pop all the registers values
-			; Just usual retutn
+			; ??? Just usual retutn
 	pop	ebp	; In recursion program it will be
-	ret		; different
+	ret		; different ??? wat? 0_o
 .SndPas:mov     esi, [ebp + 8]
                         ; start again from the 1st string address
         mov     [ebp - 36], dword 1
@@ -457,4 +485,4 @@ _start: call	ErrorCheck
 	push    string
         call    PrintString
         add     esp, 4
-	FINISH
+quit:	FINISH
